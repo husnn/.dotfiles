@@ -1,0 +1,26 @@
+alias reload="source ~/.zshrc"
+
+alias vi="nvim"
+
+alias gs="git status"
+alias gl="git log"
+alias gb="git branch"
+alias gc="git checkout"
+alias gadd="git add -u"
+alias gaddll="git add -A"
+alias gamend="git commit --amend --no-edit"
+alias gamendmsg="git commit --amend -m"
+
+alias tf="terraform"
+
+alias zconf="nvim ~/.zshrc"
+alias viconf="cd ~/.config/nvim && nvim ."
+alias tconf="nvim ~/.config/tmux/tmux.conf"
+alias wconf="vi ~/.wezterm.lua"
+
+alias ls="eza --icons=always"
+
+code() {
+    cd "$HOME/Projects/$1"
+    vi .
+};

@@ -15,8 +15,11 @@ alias tf="terraform"
 
 alias zconf="nvim ~/.zshrc"
 alias viconf="cd ~/.config/nvim && nvim ."
-alias tconf="nvim ~/.config/tmux/tmux.conf"
 alias wconf="vi ~/.wezterm.lua"
+
+TMUX_CONF=~/.config/tmux/tmux.conf
+alias tconf="nvim $TMUX_CONF"
+alias treload="tmux source-file $TMUX_CONF"
 
 alias ls="eza --icons=always"
 

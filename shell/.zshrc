@@ -22,7 +22,7 @@ export EDITOR="nvim"
 export BAT_THEME="Dracula"
 export HOMEBREW_NO_AUTO_UPDATE=1
 
-export PATH="${PATH}:${HOME}/go/bin"
+export PATH="$HOME/.local/bin:$HOME/go/bin:$PATH"
 
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm

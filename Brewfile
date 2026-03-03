@@ -19,4 +19,5 @@ brew "ripgrep"                # Fast grep
 cask "wezterm"
 
 # Fonts
-cask "font-meslo-lg-nerd-font"
+cask "font-jetbrains-mono"
+

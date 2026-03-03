@@ -4,6 +4,10 @@ brew "neovim"
 brew "tmux"
 brew "stow"
 
+# Dev
+brew "go"
+brew "pyenv"
+
 # Shell Enhancement Tools
 brew "eza"                    # Modern ls replacement
 brew "zoxide"                 # Smart cd command

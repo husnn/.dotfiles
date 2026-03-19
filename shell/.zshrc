@@ -30,7 +30,6 @@ export NVM_DIR="$HOME/.nvm"
 
 eval "$(pyenv init --path)"
 
-
 # pnpm
 export PNPM_HOME="/Users/husnain/Library/pnpm"
 case ":$PATH:" in
@@ -38,3 +37,6 @@ case ":$PATH:" in
   *) export PATH="$PNPM_HOME:$PATH" ;;
 esac
 # pnpm end
+
+# OpenCode
+OPENCODE_ENABLE_EXA=1

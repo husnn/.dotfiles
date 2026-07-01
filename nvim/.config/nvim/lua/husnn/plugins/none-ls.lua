@@ -3,7 +3,6 @@ return {
   event = { 'BufReadPre', 'BufNewFile' },
   dependencies = {
     'jay-babu/mason-null-ls.nvim',
-    'jose-elias-alvarez/typescript.nvim',
     'nvimtools/none-ls-extras.nvim'
   },
   config = function ()
@@ -35,8 +34,7 @@ return {
           end
         },
         formatting.black,
-        formatting.prettier,
-        require('typescript.extensions.null-ls.code-actions')
+        formatting.prettier
       },
       on_attach = function(current_client, bufnr)
         if current_client.supports_method('textDocument/formatting') then

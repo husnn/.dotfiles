@@ -24,8 +24,6 @@ return {
   },
   event = { 'BufReadPre', 'BufNewFile' },
   config = function()
-    local lspconfig = require('lspconfig')
-
     local on_attach = function(_, bufnr)
       local keymap = vim.keymap
 
@@ -52,13 +50,18 @@ return {
 
     local capabilities = require('cmp_nvim_lsp').default_capabilities()
 
+    -- Defaults applied to every server (merged with lspconfig's shipped configs).
+    vim.lsp.config('*', { capabilities = capabilities })
+
+    vim.api.nvim_create_autocmd('LspAttach', {
+      callback = function(args)
+        on_attach(vim.lsp.get_client_by_id(args.data.client_id), args.buf)
+      end
+    })
+
     for name, opts in pairs(servers) do
-      lspconfig[name].setup {
-        capabilities = capabilities,
-        on_attach = on_attach,
-        settings = opts,
-        filetypes = (opts or {}).filetypes
-      }
+      vim.lsp.config(name, { settings = opts })
+      vim.lsp.enable(name)
     end
   end
 }

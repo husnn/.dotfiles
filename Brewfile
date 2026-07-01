@@ -7,6 +7,7 @@ brew "stow"
 # Dev
 brew "go"
 brew "pyenv"
+brew "openjdk"
 
 # Shell Enhancement Tools
 brew "eza"                    # Modern ls replacement

@@ -40,3 +40,4 @@ esac
 
 # OpenCode
 OPENCODE_ENABLE_EXA=1
+export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"

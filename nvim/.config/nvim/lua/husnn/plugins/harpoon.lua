@@ -13,13 +13,6 @@ return {
       { desc = 'Add to harpoon' }
     )
 
-    keymap.set('n', '<leader>e',
-      function ()
-        harpoon.ui:toggle_quick_menu(harpoon:list())
-      end,
-      { desc = 'Toggle harpoon menu' }
-    )
-
     keymap.set('n', '<leader>hh',
       function ()
         harpoon.ui:toggle_quick_menu(harpoon:list())

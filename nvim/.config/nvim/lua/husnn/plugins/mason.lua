@@ -11,20 +11,7 @@ return {
     mason.setup()
 
     mason_lspconfig.setup {
-      ensure_installed = {
-        'astro',
-        'buf_ls',
-        'clangd',
-        'cssls',
-        'gopls',
-        'html',
-        'jdtls',
-        'lua_ls',
-        'pyright',
-        'tailwindcss',
-        'terraformls',
-        'ts_ls'
-      },
+      ensure_installed = vim.tbl_keys(require('husnn.lsp.servers')),
       automatic_installation = true
     }
   end

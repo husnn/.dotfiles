@@ -1,21 +1,4 @@
-local servers = {
-  astro = {
-    typescript = {}
-  },
-  buf_ls = {},
-  clangd = {},
-  cssls = {},
-  gopls = {},
-  html = {},
-  jdtls = {},
-  lua_ls = {
-    diagnostics = { globals = { "vim" } }
-  },
-  pyright = {},
-  tailwindcss = {},
-  terraformls = {},
-  ts_ls = {}
-}
+local servers = require('husnn.lsp.servers')
 
 return {
   'neovim/nvim-lspconfig',

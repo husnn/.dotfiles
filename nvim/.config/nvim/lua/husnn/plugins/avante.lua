@@ -1,6 +1,5 @@
 return {
   'yetone/avante.nvim',
-  event = 'VeryLazy',
   lazy = false,
   version = false,
   opts = {
@@ -9,7 +8,7 @@ return {
     providers = {
       claude = {
         endpoint = 'https://api.anthropic.com',
-        model = 'claude-sonnet-4-20250514',
+        model = 'claude-sonnet-4-6',
         extra_request_body = {
           temperature = 0,
           max_tokens = 16384
@@ -100,10 +99,8 @@ return {
     'nvim-lua/plenary.nvim',
     'MunifTanjim/nui.nvim',
     --- The below dependencies are optional,
-    'echasnovski/mini.pick',
     'nvim-telescope/telescope.nvim',
     'hrsh7th/nvim-cmp',
-    'ibhagwan/fzf-lua',
     'nvim-tree/nvim-web-devicons',
   }
 }

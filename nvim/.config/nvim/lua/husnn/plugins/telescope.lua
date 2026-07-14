@@ -15,6 +15,7 @@ return {
     keymap.set('n', '<leader>fs', '<cmd>Telescope live_grep<cr>', { desc = 'Search in files' })
     keymap.set('n', '<leader>fc', '<cmd>Telescope grep_string<cr>', { desc = 'Find current word' })
     keymap.set('n', '<leader><space>', '<cmd>Telescope buffers<cr>', { desc = 'Show open buffers' })
+    keymap.set('n', '<leader>fr', '<cmd>Telescope resume<cr>', { desc = 'Telescope resume previous search' })
 
     require('telescope').setup {
       defaults = {

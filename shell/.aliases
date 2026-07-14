@@ -10,6 +10,7 @@ alias gadd="git add -u"
 alias gaddll="git add -A"
 alias gamend="git commit --amend --no-edit"
 alias gamendmsg="git commit --amend -m"
+alias gcai="$HOME/.dotfiles/scripts/ai-commit.sh"
 
 alias tf="terraform"
 

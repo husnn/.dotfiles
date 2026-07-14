@@ -6,7 +6,7 @@ config.color_scheme = "Catppuccin Mocha"
 -- config.color_scheme = "Tokyo Night"
 
 config.font = wezterm.font("JetBrains Mono", { weight = "DemiBold" })
-config.font_size = 18
+config.font_size = 14
 
 config.enable_tab_bar = false
 

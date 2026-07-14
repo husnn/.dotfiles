@@ -17,12 +17,12 @@ cd "$DOTFILES_DIR"
 # Install Homebrew packages first (includes stow)
 if [ -f "Brewfile" ]; then
     echo -e "${BLUE}Installing Homebrew packages...${NC}"
-    if [ -f "scripts/brew-install.sh" ]; then
-        chmod +x scripts/brew-install.sh
-        ./scripts/brew-install.sh
+    if [ -f "scripts/brew-install" ]; then
+        chmod +x scripts/brew-install
+        ./scripts/brew-install
         echo ""
     else
-        echo -e "${YELLOW}⚠️  scripts/brew-install.sh not found, skipping package installation${NC}"
+        echo -e "${YELLOW}⚠️  scripts/brew-install not found, skipping package installation${NC}"
         echo ""
     fi
 fi

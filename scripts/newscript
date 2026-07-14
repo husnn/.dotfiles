@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+#
+# newscript — scaffold a new dotfiles script: creates the file with a shebang,
+# sets the exec bit, and opens it in $EDITOR. Scripts are extensionless and
+# live in ~/.dotfiles/scripts (already on PATH), so the new script is callable
+# by name immediately.
+#
+# Usage: newscript <name>
+
+set -euo pipefail
+
+if [ -z "${1:-}" ]; then
+    echo "usage: newscript <name>" >&2
+    exit 1
+fi
+
+name="${1%.sh}"                              # drop .sh if given; scripts are extensionless
+file="$HOME/.dotfiles/scripts/$name"
+
+if [ -e "$file" ]; then
+    echo "newscript: $name already exists" >&2
+    exit 1
+fi
+
+printf '#!/usr/bin/env bash\nset -euo pipefail\n\n' > "$file"
+chmod +x "$file"
+
+exec "${EDITOR:-nvim}" "$file"
+

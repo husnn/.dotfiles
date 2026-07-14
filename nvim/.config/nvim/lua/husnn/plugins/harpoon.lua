@@ -48,6 +48,21 @@ return {
       { desc = 'Select harpoon buffer (4)' }
     )
 
+    keymap.set('n', '<leader>h5',
+      function ()
+        harpoon:list():select(5)
+      end,
+      { desc = 'Select harpoon buffer (5)' }
+    )
+
+
+    keymap.set('n', '<leader>h6',
+      function ()
+        harpoon:list():select(6)
+      end,
+      { desc = 'Select harpoon buffer (6)' }
+    )
+
     harpoon.setup {}
   end
 }

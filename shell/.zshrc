@@ -14,9 +14,10 @@ source $(brew --prefix)/share/zsh-autosuggestions/zsh-autosuggestions.zsh
 # Zsh syntax highlighting (must be last)
 source $(brew --prefix)/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 
-bindkey -v
-bindkey -M viins '^[[1;9D' beginning-of-line  # Alt+Left Arrow
-bindkey -M viins '^[[1;9C' end-of-line        # Alt+Right Arrow
+# Previously used with WezTerm; kept here in case they're needed again.
+# bindkey -v
+# bindkey -M viins '^[[1;9D' beginning-of-line  # Alt+Left Arrow
+# bindkey -M viins '^[[1;9C' end-of-line        # Alt+Right Arrow
 
 export EDITOR="nvim"
 export BAT_THEME="Dracula"

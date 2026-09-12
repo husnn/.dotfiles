@@ -7,13 +7,14 @@ brew "stow"
 # Dev
 brew "go"
 brew "tree-sitter-cli"       # Parser CLI required by nvim-treesitter (main branch)
-brew "pyenv"
+brew "uv"
 brew "openjdk"
+brew "pnpm"
 
 # Shell Enhancement Tools
-brew "eza"                    # Modern ls replacement
-brew "zoxide"                 # Smart cd command
-brew "zsh-autosuggestions"    # Fish-like autosuggestions for zsh
+brew "eza"                     # Modern ls replacement
+brew "zoxide"                  # Smart cd command
+brew "zsh-autosuggestions"     # Fish-like autosuggestions for zsh
 brew "zsh-syntax-highlighting" # Syntax highlighting for zsh
 
 # Other useful tools
@@ -22,7 +23,8 @@ brew "fzf"                    # Fuzzy finder
 brew "ripgrep"                # Fast grep
 
 # Applications
-cask "wezterm"
+# cask "wezterm"      # Replaced with Ghostty
+cask "ghostty"
 
 # Fonts
 cask "font-jetbrains-mono"

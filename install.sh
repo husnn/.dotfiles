@@ -27,6 +27,20 @@ if [ -f "Brewfile" ]; then
     fi
 fi
 
+# Install NVM and the latest long-term support release of Node.js
+if [ -f "scripts/nvm-install" ]; then
+    echo -e "${BLUE}Installing NVM and Node.js LTS...${NC}"
+    chmod +x scripts/nvm-install
+    if ! ./scripts/nvm-install; then
+        echo -e "${RED}❌ NVM and Node.js installation failed${NC}"
+        exit 1
+    fi
+    echo ""
+else
+    echo -e "${YELLOW}⚠️  scripts/nvm-install not found, skipping Node.js installation${NC}"
+    echo ""
+fi
+
 # Check if stow is installed
 if ! command -v stow &> /dev/null; then
     echo -e "${YELLOW}GNU Stow not found. Installing...${NC}"
@@ -99,7 +113,8 @@ echo -e "${BLUE}Installing dotfiles packages...${NC}"
 stow_package "nvim" "Neovim configuration (~/.config/nvim)"
 stow_package "tmux" "Tmux configuration (~/.config/tmux)"
 stow_package "shell" "Shell configuration (.zshrc, .aliases)"
-stow_package "wezterm" "WezTerm configuration (.wezterm.lua)"
+# stow_package "wezterm" "WezTerm configuration (.wezterm.lua)"
+stow_package "ghostty" "Ghostty configuration (~/.config/ghostty)"
 
 # Install tmux plugins
 if [ -d "tmux" ]; then
@@ -125,6 +140,6 @@ echo "  • Restart your terminal or run: source ~/.zshrc"
 echo "  • If you see conflicts, run: stow --adopt <package-name> then git diff to review changes"
 echo ""
 echo -e "${BLUE}💡 Useful commands:${NC}"
-echo "  • Remove all: stow -D nvim tmux shell wezterm"
+echo "  • Remove all: stow -D nvim tmux shell ghostty"
 echo "  • Reinstall: ./install.sh"
 echo "  • Install specific package: stow <package-name>"

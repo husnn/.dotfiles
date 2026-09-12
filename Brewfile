@@ -21,6 +21,7 @@ brew "zsh-syntax-highlighting" # Syntax highlighting for zsh
 brew "bat"                    # Better cat with syntax highlighting
 brew "fzf"                    # Fuzzy finder
 brew "ripgrep"                # Fast grep
+brew "mole"                   # All-in-one cleanup utility (https://github.com/tw93/mole)
 
 # Applications
 # cask "wezterm"      # Replaced with Ghostty

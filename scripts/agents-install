@@ -1,0 +1,33 @@
+#!/bin/bash
+
+set -e
+
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+RED='\033[0;31m'
+NC='\033[0m'
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DOTFILES_DIR="$(dirname "$SCRIPT_DIR")"
+
+link_agent_path() {
+    local source_path="$1"
+    local target_path="$2"
+    local description="$3"
+
+    mkdir -p "$(dirname "$target_path")"
+
+    if [ -L "$target_path" ] && [ "$(readlink "$target_path")" = "$source_path" ]; then
+        echo -e "${GREEN}✓ $description already linked${NC}"
+    elif [ -e "$target_path" ] || [ -L "$target_path" ]; then
+        echo -e "${RED}❌ $target_path already exists and is not managed by these dotfiles${NC}"
+        return 1
+    else
+        ln -s "$source_path" "$target_path"
+        echo -e "${GREEN}✓ $description linked${NC}"
+    fi
+}
+
+echo -e "${BLUE}Linking shared agent configuration...${NC}"
+link_agent_path "$DOTFILES_DIR/agents/AGENTS.md" "$HOME/.codex/AGENTS.md" "Codex instructions"
+link_agent_path "$DOTFILES_DIR/agents/skills" "$HOME/.agents/skills" "Agent skills"

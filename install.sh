@@ -116,6 +116,17 @@ stow_package "shell" "Shell configuration (.zshrc, .aliases)"
 # stow_package "wezterm" "WezTerm configuration (.wezterm.lua)"
 stow_package "ghostty" "Ghostty configuration (~/.config/ghostty)"
 
+# Install shared agent instructions and skills for supported coding agents
+if [ -f "scripts/agents-install" ]; then
+    echo ""
+    echo -e "${BLUE}Installing agent instructions and skills...${NC}"
+    chmod +x scripts/agents-install
+    if ! ./scripts/agents-install; then
+        echo -e "${RED}❌ Could not install agent instructions and skills${NC}"
+        exit 1
+    fi
+fi
+
 # Install tmux plugins
 if [ -d "tmux" ]; then
     echo ""

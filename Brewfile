@@ -7,6 +7,7 @@ brew "stow"
 # Dev
 brew "go"
 brew "tree-sitter-cli"       # Parser CLI required by nvim-treesitter (main branch)
+brew "python@3.14"
 brew "uv"
 brew "openjdk"
 brew "pnpm"

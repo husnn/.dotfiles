@@ -36,6 +36,9 @@ case ":$PATH:" in
 esac
 # pnpm end
 
+# Python
+export PATH="$(brew --prefix python)/libexec/bin:$PATH"
+
 # Java
 export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"
 

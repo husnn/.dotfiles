@@ -123,10 +123,10 @@ if [ -d "tmux" ]; then
 fi
 
 # Setup environment variables
-if [ -f "shell/.env.example" ] && [ ! -f "$HOME/.env" ]; then
+if [ -f "templates/.env.example" ] && [ ! -f "$HOME/.env" ]; then
     echo ""
     echo -e "${BLUE}Setting up environment variables...${NC}"
-    cp "shell/.env.example" "$HOME/.env"
+    cp "templates/.env.example" "$HOME/.env"
     echo -e "${GREEN}✓ Created ~/.env from template${NC}"
     echo -e "${YELLOW}⚠️  Please edit ~/.env and add your actual environment variables${NC}"
     echo -e "${YELLOW}Note: ~/.env is a local file, not managed by stow${NC}"

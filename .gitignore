@@ -35,3 +35,11 @@ Temporary Items
 *.icloud
 
 # End of https://www.toptal.com/developers/gitignore/api/macos
+
+# Personal overrides must never become managed configuration or committed secrets.
+.env
+local.zsh
+local.conf
+*~
+*.swp
+*.swo

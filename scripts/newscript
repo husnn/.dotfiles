@@ -2,28 +2,41 @@
 #
 # newscript — scaffold a new dotfiles script: creates the file with a shebang,
 # sets the exec bit, and opens it in $EDITOR. Scripts are extensionless and
-# live in ~/.dotfiles/scripts (already on PATH), so the new script is callable
+# live in the managed checkout's scripts/ directory (already on PATH), so it is callable
 # by name immediately.
 #
 # Usage: newscript <name>
 
 set -euo pipefail
 
-if [ -z "${1:-}" ]; then
+if [ "$#" -ne 1 ] || [ -z "$1" ]; then
     echo "usage: newscript <name>" >&2
     exit 1
 fi
 
-name="${1%.sh}"                              # drop .sh if given; scripts are extensionless
-file="$HOME/.dotfiles/scripts/$name"
+name="${1%.sh}" # Scripts are extensionless.
+case "$name" in
+    ''|[!a-zA-Z0-9]*|*[!a-zA-Z0-9_.-]*)
+        printf 'newscript: use a name starting with a letter or digit, containing only letters, digits, dots, underscores, or hyphens\n' >&2
+        exit 1
+        ;;
+esac
+repo="${DOTFILES_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/dotfiles/repo}"
+if [ ! -d "$repo/scripts" ]; then
+    printf 'newscript: managed checkout not found; rerun install.sh --only config\n' >&2
+    exit 1
+fi
+file="$repo/scripts/$name"
 
-if [ -e "$file" ]; then
+if [ -e "$file" ] || [ -L "$file" ]; then
     echo "newscript: $name already exists" >&2
     exit 1
 fi
 
+# noclobber also protects against another process creating this name meanwhile.
+set -C
 printf '#!/usr/bin/env bash\nset -euo pipefail\n\n' > "$file"
 chmod +x "$file"
 
+# EDITOR is a single executable or wrapper path; never evaluate shell syntax.
 exec "${EDITOR:-nvim}" "$file"
-

@@ -1,0 +1,4 @@
+fonts-jetbrains-mono
+fontconfig
+xclip
+wl-clipboard

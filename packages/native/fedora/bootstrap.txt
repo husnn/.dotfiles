@@ -1,0 +1,11 @@
+gcc
+gcc-c++
+make
+procps-ng
+curl
+file
+git
+ca-certificates
+zsh
+unzip
+xz

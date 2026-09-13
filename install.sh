@@ -1,156 +1,198 @@
 #!/bin/bash
+# Public entry point. Keep bootstrap compatible with macOS Bash 3.2.
+set -Eeo pipefail
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+DOTFILES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+PROFILE=''
+TERMINAL=''
+DRY_RUN=0
+CHECK=0
+CONFIG_ONLY=0
+BACKUP_AND_REPLACE=0
+STAGE=arguments
+LOCKED=0
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/dotfiles"
 
-echo -e "${BLUE}🏠 Dotfiles Installation with GNU Stow${NC}"
-echo "=================================="
+log() { printf '%s\n' "$*"; }
+die() { printf 'Error: %s\n' "$*" >&2; exit 1; }
 
-# Get the directory where this script is located
-DOTFILES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$DOTFILES_DIR"
+usage() {
+    printf '%s\n' \
+        'Usage: ./install.sh [--profile core|desktop] [options]' \
+        '' \
+        '  --profile core|desktop   Required initially; reuse successful selection later' \
+        '  --terminal ghostty|wezterm  Desktop terminal (default: ghostty)' \
+        '  --only config           Link configuration; do not install packages or plugins' \
+        '  --dry-run               Inspect selection and conflicts without changing anything' \
+        '  --check                 Read-only checks; do not initialize editor plugins' \
+        '  --backup-and-replace    Back up existing conflicting files, then replace with links' \
+        '                          Applies to all conflicts; settings are not merged' \
+        '  -h, --help              Show this help' \
+        '' \
+        'Core contains development tools but no GUI packages or terminal configuration.' \
+        'Desktop includes core, a terminal, fonts, and Linux clipboard utilities.'
+}
 
-# Install Homebrew packages first (includes stow)
-if [ -f "Brewfile" ]; then
-    echo -e "${BLUE}Installing Homebrew packages...${NC}"
-    if [ -f "scripts/brew-install" ]; then
-        chmod +x scripts/brew-install
-        ./scripts/brew-install
-        echo ""
-    else
-        echo -e "${YELLOW}⚠️  scripts/brew-install not found, skipping package installation${NC}"
-        echo ""
-    fi
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --profile|--terminal|--only)
+            [ "$#" -ge 2 ] || die "$1 requires a value"
+            case "$1" in
+                --profile) PROFILE=$2 ;;
+                --terminal) TERMINAL=$2 ;;
+                --only) [ "$2" = config ] || die '--only accepts config'; CONFIG_ONLY=1 ;;
+            esac
+            shift 2 ;;
+        --dry-run) DRY_RUN=1; shift ;;
+        --check) CHECK=1; shift ;;
+        --backup-and-replace) BACKUP_AND_REPLACE=1; shift ;;
+        -h|--help) usage; exit 0 ;;
+        *) die "Unknown argument: $1 (see --help)" ;;
+    esac
+done
+[ "$CHECK" -eq 0 ] || { [ "$DRY_RUN" -eq 0 ] && [ "$CONFIG_ONLY" -eq 0 ] && [ "$BACKUP_AND_REPLACE" -eq 0 ]; } || die '--check cannot be combined with mutation/planning options'
+
+# Paths also appear in line-oriented recovery records: reject ambiguous values.
+for directory in "$HOME" "$DOTFILES_DIR" "$STATE_DIR" "${XDG_DATA_HOME:-$HOME/.local/share}"; do
+    case "$directory" in /*) ;; *) die "Expected an absolute path: $directory" ;; esac
+    case "$directory" in
+        *$'\t'*|*$'\n'*|*$'\r'*) die 'Paths must not contain tabs or newlines' ;;
+    esac
+done
+[ "$HOME" != / ] || die 'HOME cannot be /'
+[ "${XDG_CONFIG_HOME:-$HOME/.config}" = "$HOME/.config" ] || die 'Custom XDG_CONFIG_HOME is not supported; configuration targets ~/.config'
+[ "${ZDOTDIR:-$HOME}" = "$HOME" ] || die 'Custom ZDOTDIR is not supported; shell configuration targets ~/.zshrc'
+
+SAVED_PROFILE=''
+SAVED_TERMINAL=''
+if [ -f "$STATE_DIR/selection" ]; then
+    schema=''
+    while IFS='=' read -r key value; do
+        case "$key" in
+            schema) schema=$value ;;
+            profile) SAVED_PROFILE=$value ;;
+            terminal) SAVED_TERMINAL=$value ;;
+            '') ;;
+            *) die "Unknown state field '$key' in $STATE_DIR/selection" ;;
+        esac
+    done < "$STATE_DIR/selection"
+    [ "$schema" = 1 ] || die 'Unsupported selection state schema'
+    case "$SAVED_PROFILE:$SAVED_TERMINAL" in
+        core:none|desktop:ghostty|desktop:wezterm) ;;
+        *) die "Invalid saved selection in $STATE_DIR/selection" ;;
+    esac
 fi
-
-# Install NVM and the latest long-term support release of Node.js
-if [ -f "scripts/nvm-install" ]; then
-    echo -e "${BLUE}Installing NVM and Node.js LTS...${NC}"
-    chmod +x scripts/nvm-install
-    if ! ./scripts/nvm-install; then
-        echo -e "${RED}❌ NVM and Node.js installation failed${NC}"
-        exit 1
-    fi
-    echo ""
-else
-    echo -e "${YELLOW}⚠️  scripts/nvm-install not found, skipping Node.js installation${NC}"
-    echo ""
-fi
-
-# Check if stow is installed
-if ! command -v stow &> /dev/null; then
-    echo -e "${YELLOW}GNU Stow not found. Installing...${NC}"
-    if command -v brew &> /dev/null; then
-        brew install stow
-    elif command -v apt &> /dev/null; then
-        sudo apt update && sudo apt install stow
-    elif command -v yum &> /dev/null; then
-        sudo yum install stow
-    elif command -v pacman &> /dev/null; then
-        sudo pacman -S stow
-    else
-        echo -e "${RED}❌ Could not install stow automatically. Please install it manually:${NC}"
-        echo "  macOS: brew install stow"
-        echo "  Ubuntu/Debian: sudo apt install stow"
-        echo "  CentOS/RHEL: sudo yum install stow"
-        echo "  Arch: sudo pacman -S stow"
-        exit 1
-    fi
-fi
-
-echo -e "${GREEN}✓ GNU Stow is available${NC}"
-
-# Function to stow a package
-stow_package() {
-    local package="$1"
-    local description="$2"
-    
-    if [ -d "$package" ]; then
-        echo -e "${BLUE}Installing $description...${NC}"
-        if stow --no-folding "$package" 2>/dev/null; then
-            echo -e "${GREEN}✓ $description installed${NC}"
-        else
-            echo -e "${YELLOW}⚠️  $description: conflicts detected, use 'stow --adopt $package' to resolve${NC}"
+PROFILE=${PROFILE:-$SAVED_PROFILE}
+case "$PROFILE" in
+    core)
+        [ -z "$TERMINAL" ] || die '--terminal requires --profile desktop'
+        TERMINAL=none ;;
+    desktop)
+        if [ -z "$TERMINAL" ]; then
+            if [ "$SAVED_PROFILE" = desktop ]; then TERMINAL=$SAVED_TERMINAL; else TERMINAL=ghostty; fi
         fi
-    else
-        echo -e "${RED}❌ Package directory '$package' not found${NC}"
+        case "$TERMINAL" in ghostty|wezterm) ;; *) die 'Choose --terminal ghostty or wezterm' ;; esac ;;
+    '') die 'Choose --profile core or --profile desktop on the first run (see --help)' ;;
+    *) die 'Choose --profile core or --profile desktop' ;;
+esac
+
+for helper in platform packages runtimes links tmux doctor; do
+    # shellcheck disable=SC1090
+    source "$DOTFILES_DIR/setup/$helper.sh"
+done
+
+cleanup() {
+    local status=$?
+    trap - EXIT
+    if [ "$status" -ne 0 ] && [ "$LOCKED" -eq 1 ]; then
+        printf 'Stopped during %s. Last successful selection was not changed.\n' "$STAGE" >&2
+        rollback_links || printf 'Automatic link recovery incomplete; inspect the recovery directory.\n' >&2
     fi
+    if [ "$LOCKED" -eq 1 ]; then
+        rm -f "$STATE_DIR/lock/pid"
+        rmdir "$STATE_DIR/lock" || true
+    fi
+    exit "$status"
 }
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
-# Function to install TPM and plugins
-install_tmux_plugins() {
-    local tpm_dir="$HOME/.config/tmux/plugins/tpm"
-    
-    echo -e "${BLUE}Setting up Tmux Plugin Manager...${NC}"
+STAGE=preflight
+detect_platform
+log "Platform: $DISTRO $VERSION_ID ($ARCH)"
+log "Selection: $PROFILE; terminal: $TERMINAL"
+plan_links
 
-    if [ ! -d "$tpm_dir" ]; then
-        echo -e "${BLUE}Installing TPM...${NC}"
-        mkdir -p "$(dirname "$tpm_dir")"
-        git clone https://github.com/tmux-plugins/tpm "$tpm_dir"
-        echo -e "${GREEN}✓ TPM installed${NC}"
+if [ "$CHECK" -eq 1 ]; then
+    doctor
+    exit 0
+fi
+preflight_links
+if [ "$CONFIG_ONLY" -eq 0 ]; then validate_package_platform; fi
+if [ "$DRY_RUN" -eq 1 ]; then
+    if [ "$CONFIG_ONLY" -eq 0 ]; then
+        install_packages
+        install_runtimes
+        log 'Plan: bootstrap TPM if missing; editor and tmux plugins remain first-launch actions.'
+    fi
+    if [ ! -e "$HOME/.config/shell/local.zsh" ] && [ ! -L "$HOME/.config/shell/local.zsh" ]; then
+        log 'Plan: create empty personal shell overrides at ~/.config/shell/local.zsh.'
+    fi
+    log 'Dry run: no packages, runtimes, plugins, links, backups, or state were changed.'
+    exit 0
+fi
+
+[ "$(id -u)" -ne 0 ] || die 'Run as your normal user, not root or sudo; only system packages need elevation'
+# Refuse redirected state writes, including symlinked ancestors.
+directory=$STATE_DIR
+while [ "$directory" != / ]; do
+    [ ! -L "$directory" ] || die "State path contains a symlink: $directory"
+    directory=$(dirname "$directory")
+done
+for state_file in selection selection.new links.tsv; do
+    [ ! -L "$STATE_DIR/$state_file" ] || die "State file cannot be a symlink: $STATE_DIR/$state_file"
+done
+umask 077
+mkdir -p "$STATE_DIR"
+if ! mkdir "$STATE_DIR/lock" 2>/dev/null; then
+    die "Installer lock exists: $STATE_DIR/lock. Check its pid and running installers before removing a stale lock."
+fi
+LOCKED=1
+printf '%s\n' "$$" > "$STATE_DIR/lock/pid"
+
+if [ "$CONFIG_ONLY" -eq 0 ]; then
+    STAGE=packages
+    install_packages
+    STAGE=runtimes
+    install_runtimes
+else
+    if discover_brew; then :; else
+        brew_status=$?
+        [ "$brew_status" -eq 1 ] || die 'Existing Homebrew installation is incompatible or broken'
+    fi
+fi
+command -v stow >/dev/null 2>&1 || die 'GNU Stow is required for configuration linking'
+STAGE=links
+apply_links
+if [ "$CONFIG_ONLY" -eq 0 ]; then
+    STAGE=tmux
+    install_tmux
+fi
+STAGE=verification
+if [ "$CONFIG_ONLY" -eq 1 ]; then check_links; else doctor; fi
+STAGE=state
+printf 'schema=1\nprofile=%s\nterminal=%s\n' "$PROFILE" "$TERMINAL" > "$STATE_DIR/selection.new"
+commit_links
+local_shell_config="$HOME/.config/shell/local.zsh"
+if [ ! -e "$local_shell_config" ] && [ ! -L "$local_shell_config" ]; then
+    if touch "$local_shell_config"; then
+        log "Created personal shell overrides: $local_shell_config"
     else
-        echo -e "${GREEN}✓ TPM already installed${NC}"
-    fi
-    
-    # Install plugins if tmux is running
-    if pgrep -x "tmux" > /dev/null; then
-        echo -e "${BLUE}Installing tmux plugins...${NC}"
-        "$tpm_dir/bin/install_plugins"
-        echo -e "${GREEN}✓ Tmux plugins installed${NC}"
-    else
-        echo -e "${YELLOW}⚠️  Start tmux and press prefix + I to install plugins${NC}"
-    fi
-}
-
-echo ""
-echo -e "${BLUE}Installing dotfiles packages...${NC}"
-
-# Install each package
-stow_package "nvim" "Neovim configuration (~/.config/nvim)"
-stow_package "tmux" "Tmux configuration (~/.config/tmux)"
-stow_package "shell" "Shell configuration (.zshrc, .aliases)"
-# stow_package "wezterm" "WezTerm configuration (.wezterm.lua)"
-stow_package "ghostty" "Ghostty configuration (~/.config/ghostty)"
-
-# Install shared agent instructions and skills for supported coding agents
-if [ -f "scripts/agents-install" ]; then
-    echo ""
-    echo -e "${BLUE}Installing agent instructions and skills...${NC}"
-    chmod +x scripts/agents-install
-    if ! ./scripts/agents-install; then
-        echo -e "${RED}❌ Could not install agent instructions and skills${NC}"
-        exit 1
+        printf 'Warning: could not create personal shell overrides: %s\n' "$local_shell_config" >&2
     fi
 fi
-
-# Install tmux plugins
-if [ -d "tmux" ]; then
-    echo ""
-    install_tmux_plugins
-fi
-
-# Setup environment variables
-if [ -f "templates/.env.example" ] && [ ! -f "$HOME/.env" ]; then
-    echo ""
-    echo -e "${BLUE}Setting up environment variables...${NC}"
-    cp "templates/.env.example" "$HOME/.env"
-    echo -e "${GREEN}✓ Created ~/.env from template${NC}"
-    echo -e "${YELLOW}⚠️  Please edit ~/.env and add your actual environment variables${NC}"
-    echo -e "${YELLOW}Note: ~/.env is a local file, not managed by stow${NC}"
-fi
-
-echo ""
-echo -e "${GREEN}✅ Dotfiles installation complete!${NC}"
-echo ""
-echo -e "${YELLOW}📝 Next steps:${NC}"
-echo "  • Restart your terminal or run: source ~/.zshrc"
-echo "  • If you see conflicts, run: stow --adopt <package-name> then git diff to review changes"
-echo ""
-echo -e "${BLUE}💡 Useful commands:${NC}"
-echo "  • Remove all: stow -D nvim tmux shell ghostty"
-echo "  • Reinstall: ./install.sh"
-echo "  • Install specific package: stow <package-name>"
+unset local_shell_config
+log "Completed $PROFILE setup. Restart your shell; personal overrides belong in ~/.config/shell/local.zsh."
+log 'Open Neovim to let its existing plugin managers finish first-launch setup.'
+log 'In tmux, press Ctrl-Space then Shift-I to install plugins (TPM must be installed).'

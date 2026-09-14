@@ -6,19 +6,29 @@ set -euo pipefail
 usage() {
     cat <<'EOF'
 usage: cloak-cdp [--headless] [--port PORT] [--host SSH_HOST]
+                 [--state-dir STATE_DIR] [--fingerprint SEED]
 
-Launch CloakBrowser locally and expose its loopback CDP endpoint on the SSH
-host's loopback interface. Ctrl-C stops both the browser and tunnel.
+Launch the persistent CloakBrowser profile locally and expose its loopback CDP
+endpoint on the SSH host's loopback interface. Ctrl-C stops both the browser
+and tunnel. The profile stays on disk.
 
 Defaults:
   PORT      9222 (or $CLOAK_CDP_PORT)
   SSH_HOST  hermes-vps (or $CLOAK_CDP_SSH_HOST)
+  STATE_DIR ${XDG_STATE_HOME:-$HOME/.local/state}/cloak-cdp
+            (or $CLOAK_CDP_STATE_DIR)
+
+The fingerprint is generated and recorded on the profile's first launch, then
+reused. Use --fingerprint or $CLOAK_CDP_FINGERPRINT_SEED only to initialize a
+new profile or adopt an existing profile's known seed.
 EOF
 }
 
 port=${CLOAK_CDP_PORT:-9222}
 ssh_host=${CLOAK_CDP_SSH_HOST:-hermes-vps}
 headless=0
+state_dir=
+fingerprint=
 
 while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -34,6 +44,16 @@ while [ "$#" -gt 0 ]; do
         --host)
             [ "$#" -ge 2 ] || { printf 'cloak-cdp: --host requires a value\n' >&2; exit 2; }
             ssh_host=$2
+            shift 2
+            ;;
+        --state-dir)
+            [ "$#" -ge 2 ] || { printf 'cloak-cdp: --state-dir requires a value\n' >&2; exit 2; }
+            state_dir=$2
+            shift 2
+            ;;
+        --fingerprint)
+            [ "$#" -ge 2 ] || { printf 'cloak-cdp: --fingerprint requires a value\n' >&2; exit 2; }
+            fingerprint=$2
             shift 2
             ;;
         -h|--help)
@@ -99,6 +119,8 @@ trap cleanup EXIT
 
 browser_args=(--port "$port")
 [ "$headless" -eq 0 ] || browser_args+=(--headless)
+[ -z "$state_dir" ] || browser_args+=(--state-dir "$state_dir")
+[ -z "$fingerprint" ] || browser_args+=(--fingerprint "$fingerprint")
 
 printf 'Starting CloakBrowser on http://127.0.0.1:%s ...\n' "$port"
 uv run --frozen --project "$project_dir" python "$project_dir/launcher.py" "${browser_args[@]}" &

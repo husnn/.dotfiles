@@ -1,0 +1,4 @@
+interface:
+  display_name: "Real Browser Automation"
+  short_description: "Automate browser interactions and workflows"
+  default_prompt: "Use $real-browser-automation to complete this task with the appropriate browser automation route."

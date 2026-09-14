@@ -61,6 +61,7 @@ packages/           shared + macOS Brewfiles; desktop and APT/DNF lists
 config/shared/      application Stow packages
 config/macos/       small Mac additions (Ghostty icon/settings)
 scripts/            everyday commands on PATH
+tools/              private support projects used by scripts
 agents/             shared agent instructions and skills, unchanged paths
 templates/          personal configuration examples
 ```

@@ -1,0 +1,140 @@
+#!/usr/bin/env bash
+# Launch the local CloakBrowser CDP endpoint and its reverse SSH tunnel as one job.
+
+set -euo pipefail
+
+usage() {
+    cat <<'EOF'
+usage: cloak-cdp [--headless] [--port PORT] [--host SSH_HOST]
+
+Launch CloakBrowser locally and expose its loopback CDP endpoint on the SSH
+host's loopback interface. Ctrl-C stops both the browser and tunnel.
+
+Defaults:
+  PORT      9222 (or $CLOAK_CDP_PORT)
+  SSH_HOST  hermes-vps (or $CLOAK_CDP_SSH_HOST)
+EOF
+}
+
+port=${CLOAK_CDP_PORT:-9222}
+ssh_host=${CLOAK_CDP_SSH_HOST:-hermes-vps}
+headless=0
+
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --headless)
+            headless=1
+            shift
+            ;;
+        --port)
+            [ "$#" -ge 2 ] || { printf 'cloak-cdp: --port requires a value\n' >&2; exit 2; }
+            port=$2
+            shift 2
+            ;;
+        --host)
+            [ "$#" -ge 2 ] || { printf 'cloak-cdp: --host requires a value\n' >&2; exit 2; }
+            ssh_host=$2
+            shift 2
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        *)
+            printf 'cloak-cdp: unknown argument: %s\n' "$1" >&2
+            usage >&2
+            exit 2
+            ;;
+    esac
+done
+
+case "$port" in
+    ''|*[!0-9]*) printf 'cloak-cdp: port must be an integer from 1 to 65535\n' >&2; exit 2 ;;
+esac
+if [ "$port" -lt 1 ] || [ "$port" -gt 65535 ]; then
+    printf 'cloak-cdp: port must be an integer from 1 to 65535\n' >&2
+    exit 2
+fi
+case "$ssh_host" in
+    ''|-*) printf 'cloak-cdp: SSH host must not be empty or begin with "-"\n' >&2; exit 2 ;;
+esac
+
+if [ "$(uname -s)" != Darwin ]; then
+    printf 'cloak-cdp: CloakBrowser is configured as a macOS desktop tool\n' >&2
+    exit 1
+fi
+for command_name in uv ssh; do
+    if ! command -v "$command_name" >/dev/null 2>&1; then
+        printf 'cloak-cdp: required command not found: %s\n' "$command_name" >&2
+        exit 1
+    fi
+done
+
+script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
+project_dir=${script_dir%/scripts}/tools/cloak-cdp
+if [ ! -f "$project_dir/pyproject.toml" ] || [ ! -f "$project_dir/launcher.py" ]; then
+    printf 'cloak-cdp: support project not found at %s\n' "$project_dir" >&2
+    exit 1
+fi
+
+browser_pid=
+tunnel_pid=
+
+cleanup() {
+    status=$?
+    trap - EXIT INT TERM HUP
+
+    [ -z "$tunnel_pid" ] || kill -TERM "$tunnel_pid" 2>/dev/null || true
+    [ -z "$browser_pid" ] || kill -TERM "$browser_pid" 2>/dev/null || true
+    [ -z "$tunnel_pid" ] || wait "$tunnel_pid" 2>/dev/null || true
+    [ -z "$browser_pid" ] || wait "$browser_pid" 2>/dev/null || true
+
+    exit "$status"
+}
+
+trap 'exit 130' INT
+trap 'exit 143' TERM
+trap 'exit 129' HUP
+trap cleanup EXIT
+
+browser_args=(--port "$port")
+[ "$headless" -eq 0 ] || browser_args+=(--headless)
+
+printf 'Starting CloakBrowser on http://127.0.0.1:%s ...\n' "$port"
+uv run --frozen --project "$project_dir" python "$project_dir/launcher.py" "${browser_args[@]}" &
+browser_pid=$!
+
+printf 'Opening reverse tunnel on %s (loopback port %s) ...\n' "$ssh_host" "$port"
+ssh -NT \
+    -o ExitOnForwardFailure=yes \
+    -o ServerAliveInterval=30 \
+    -o ServerAliveCountMax=3 \
+    -R "127.0.0.1:${port}:127.0.0.1:${port}" \
+    -- "$ssh_host" &
+tunnel_pid=$!
+
+printf 'Processes started; waiting for CDP readiness. Press Ctrl-C to stop both.\n'
+
+# macOS ships Bash 3.2, which has no `wait -n`. The shell job table lets us
+# notice either child exiting without choosing one child to block on forever.
+while :; do
+    browser_running=0
+    tunnel_running=0
+    for running_pid in $(jobs -pr); do
+        [ "$running_pid" != "$browser_pid" ] || browser_running=1
+        [ "$running_pid" != "$tunnel_pid" ] || tunnel_running=1
+    done
+
+    if [ "$browser_running" -eq 0 ]; then
+        if wait "$browser_pid"; then status=0; else status=$?; fi
+        printf 'cloak-cdp: browser exited; stopping tunnel\n' >&2
+        exit "$status"
+    fi
+    if [ "$tunnel_running" -eq 0 ]; then
+        if wait "$tunnel_pid"; then status=0; else status=$?; fi
+        printf 'cloak-cdp: tunnel exited; stopping browser\n' >&2
+        exit "$status"
+    fi
+
+    sleep 1
+done

@@ -1,0 +1,11 @@
+[project]
+name = "cloak-cdp"
+version = "0.1.0"
+description = "Local CloakBrowser CDP endpoint for trusted SSH tunnels"
+requires-python = ">=3.14,<3.15"
+dependencies = [
+    "cloakbrowser",
+]
+
+[tool.uv]
+package = false

@@ -76,8 +76,10 @@ plan_links() {
         for package in shell nvim tmux; do link_package "$layer" "$package"; done
         if [ "$PROFILE" = desktop ]; then link_package "$layer" "$TERMINAL"; fi
     done
+    LINK_DIRECT_START=${#LINK_TARGETS[@]}
     link_add "${XDG_DATA_HOME:-$HOME/.local/share}/dotfiles/repo" "$DOTFILES_DIR"
     link_add "$HOME/.codex/AGENTS.md" "$DOTFILES_DIR/agents/AGENTS.md"
+    link_add "$HOME/.config/opencode/AGENTS.md" "$DOTFILES_DIR/agents/AGENTS.md"
     link_add "$HOME/.agents/skills" "$DOTFILES_DIR/agents/skills"
     if [ -f "$STATE_DIR/links.tsv" ]; then
         while IFS=$'\t' read -r target source extra; do
@@ -265,8 +267,8 @@ apply_links() {
     for ((index=0; index<${#LINK_PACKAGES[@]}; index++)); do
         stow --no-folding --ignore='(^|/)\.DS_Store$' --dir="$DOTFILES_DIR/config/${LINK_LAYERS[index]}" --target="$HOME" "${LINK_PACKAGES[index]}" || die 'Stow linking failed.'
     done
-    # The last three map entries are direct links outside the Stow packages.
-    for ((index=${#LINK_TARGETS[@]}-3; index<${#LINK_TARGETS[@]}; index++)); do
+    # Create direct links declared after the Stow-managed package entries.
+    for ((index=LINK_DIRECT_START; index<${#LINK_TARGETS[@]}; index++)); do
         target=${LINK_TARGETS[index]} source=${LINK_SOURCES[index]}
         link_safe_ancestors "$target"
         if ! link_points_to "$target" "$source"; then

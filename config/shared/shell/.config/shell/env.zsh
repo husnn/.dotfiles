@@ -3,6 +3,9 @@ export EDITOR="${EDITOR:-nvim}"
 export BAT_THEME="${BAT_THEME:-Dracula}"
 export HOMEBREW_NO_AUTO_UPDATE=1
 export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+# Keep pip from modifying a shared interpreter accidentally. Project packages
+# belong in a virtual environment; standalone tools belong in uv tool/uvx.
+export PIP_REQUIRE_VIRTUALENV=true
 
 # Known locations are discovery candidates, never application-specific paths.
 if (( ! $+commands[brew] )); then
@@ -19,7 +22,9 @@ fi
 typeset -U path PATH
 path=("$DOTFILES_DIR/scripts" "$HOME/.local/bin" "${GOPATH:-$HOME/go}/bin" $path)
 if [[ -n "$HOMEBREW_PREFIX" ]]; then
-    [[ -d "$HOMEBREW_PREFIX/opt/python@3.14/libexec/bin" ]] && path=("$HOMEBREW_PREFIX/opt/python@3.14/libexec/bin" $path)
+    # Do not rely on the inherited PATH already containing Homebrew first.
+    # Homebrew exposes Python as python3/pip3 from its standard bin directory.
+    [[ -d "$HOMEBREW_PREFIX/bin" ]] && path=("$HOMEBREW_PREFIX/bin" $path)
     if [[ -d "$HOMEBREW_PREFIX/opt/openjdk/bin" ]]; then
         path=("$HOMEBREW_PREFIX/opt/openjdk/bin" $path)
         if [[ "$OSTYPE" == darwin* ]]; then

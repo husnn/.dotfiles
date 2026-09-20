@@ -17,7 +17,7 @@ doctor() (
     if discover_brew; then
         log "Homebrew: $BREW"
         prefix=$HOMEBREW_PREFIX
-        PATH="$prefix/opt/python@3.14/libexec/bin:$prefix/opt/openjdk/bin:$PATH"
+        PATH="$prefix/opt/openjdk/bin:$prefix/bin:$PATH"
         export PATH
     else
         log 'Missing or incompatible Homebrew installation.'
@@ -34,13 +34,22 @@ doctor() (
     else
         log 'NVM: missing'; failed=1
     fi
-    for executable in git nvim tmux stow zsh go tree-sitter python3 uv java eza zoxide bat fzf rg node npm pnpm cc make curl tar unzip; do
+    for executable in git nvim tmux stow zsh go tree-sitter python3 pip3 uv java eza zoxide bat fzf rg node npm pnpm cc make curl tar unzip; do
         if location=$(command -v "$executable" 2>/dev/null); then
             log "$executable: $location"
         else
             log "Missing required command: $executable"; failed=1
         fi
     done
+    if [ -n "$prefix" ]; then
+        for executable in python3 pip3; do
+            location=$(command -v "$executable" 2>/dev/null) || continue
+            case "$location" in
+                "$prefix"/*) ;;
+                *) log "$executable does not resolve through Homebrew: $location"; failed=1 ;;
+            esac
+        done
+    fi
     if command -v nvim >/dev/null 2>&1; then
         version=$(nvim --version)
         version=${version%%$'\n'*}

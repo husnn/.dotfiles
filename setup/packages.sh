@@ -123,7 +123,7 @@ install_packages() {
         # Use the declared runtimes in the installer as well as the managed shell,
         # rather than a system Python or macOS's Java launcher stub.
         prefix=$("$BREW" --prefix) || return 1
-        export PATH="$prefix/opt/python@3.14/libexec/bin:$prefix/opt/openjdk/bin:$PATH"
+        export PATH="$prefix/opt/openjdk/bin:$prefix/bin:$PATH"
         if [ "$OS" = macos ]; then
             export JAVA_HOME="$prefix/opt/openjdk/libexec/openjdk.jdk/Contents/Home"
         else

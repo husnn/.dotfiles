@@ -4,9 +4,6 @@ font-family = JetBrains Mono
 font-style = SemiBold
 font-size = 14
 
-# Preserve the Shift-Enter behavior used by interactive development tools.
-keybind = shift+enter=text:\x1b\r
-
 # Prepare interactive SSH sessions with matching remote terminal capabilities.
 shell-integration-features = ssh-env,ssh-terminfo
 

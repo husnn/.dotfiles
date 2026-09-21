@@ -64,6 +64,7 @@ scripts/            everyday commands on PATH
 tools/              private support projects used by scripts
 agents/             shared agent instructions and skills, unchanged paths
 templates/          personal configuration examples
+docs/               configuration explanations and troubleshooting notes
 ```
 
 Every destination has one owner. OS packages add distinct include files; they never overwrite shared files. Stow always receives an explicit directory, home target, and `--no-folding`. `.DS_Store` is explicitly ignored. No empty Linux/platform directories are needed when there are no differences.

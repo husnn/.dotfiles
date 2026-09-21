@@ -74,6 +74,50 @@ Bad:  Switch to a new renderer and refresh graphics infrastructure
 Good: Replace the legacy renderer
 ```
 
+## Choose detail to fit the change
+
+For a user-facing fix, make the broken behavior understandable without the debugging
+conversation. A mechanism alone can leave the purpose implicit:
+
+```text
+Too implementation-focused: Forward Shift+Enter as CSI-u and bind viins Meta keys
+Behavior-first: Fix terminal shortcuts for newlines and cursor navigation
+```
+
+A body can explain distinct results in plain bullets:
+
+```text
+Fix terminal shortcuts for newlines and cursor navigation
+
+- Make Shift+Enter insert a newline in AI CLIs inside tmux instead of
+  submitting the prompt.
+- Fix Option+Right editing text unexpectedly instead of moving forward
+  by a word.
+- Make Cmd+Left and Cmd+Right jump to the beginning and end of the line
+  instead of inserting control characters.
+```
+
+Technical detail is useful when it explains an important choice. It can accompany
+the outcome rather than replace it:
+
+```text
+Preserve Shift+Enter for applications inside tmux
+
+- Keep newline insertion working when an application does not request
+  extended keyboard reporting by explicitly forwarding CSI-u Shift+Enter.
+- Leave other extended keys application-controlled rather than forcing
+  extended reporting for every application.
+```
+
+For a low-level change, technical wording may be the clearest explanation from
+the outset:
+
+```text
+Use compare-and-swap to prevent lost concurrent cache updates
+```
+
+These are context-dependent choices, not a rule to avoid technical terminology.
+
 ## Incoherent scope
 
 Do not force unrelated work into one vague message:

@@ -43,6 +43,10 @@ return {
             group = augroup,
             buffer = bufnr,
             callback = function()
+              -- Markdown is prose, not code: Prettier reflows line breaks on
+              -- every save, which fights manual paragraph wrapping. Skip
+              -- format-on-save for markdown only; manual formatting still works.
+              if vim.bo[bufnr].filetype == 'markdown' then return end
               vim.lsp.buf.format {
                 filter = function (client)
                   return client.name == 'null-ls'

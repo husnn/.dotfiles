@@ -80,7 +80,6 @@ plan_links() {
     link_add "${XDG_DATA_HOME:-$HOME/.local/share}/dotfiles/repo" "$DOTFILES_DIR"
     link_add "$HOME/.codex/AGENTS.md" "$DOTFILES_DIR/agents/AGENTS.md"
     link_add "$HOME/.config/opencode/AGENTS.md" "$DOTFILES_DIR/agents/AGENTS.md"
-    link_add "$HOME/.agents/skills" "$DOTFILES_DIR/agents/skills"
     if [ -f "$STATE_DIR/links.tsv" ]; then
         while IFS=$'\t' read -r target source extra; do
             [ -n "$target" ] && [ -n "$source" ] && [ -z "$extra" ] || die 'Invalid managed-link manifest.'

@@ -139,6 +139,7 @@ if [ "$DRY_RUN" -eq 1 ]; then
     if [ ! -e "$HOME/.config/shell/local.zsh" ] && [ ! -L "$HOME/.config/shell/local.zsh" ]; then
         log 'Plan: create empty personal shell overrides at ~/.config/shell/local.zsh.'
     fi
+    log 'Plan: reconcile repository-managed agent skills.'
     log 'Dry run: no packages, runtimes, plugins, links, backups, or state were changed.'
     exit 0
 fi
@@ -184,6 +185,8 @@ if [ "$CONFIG_ONLY" -eq 1 ]; then check_links; else doctor; fi
 STAGE=state
 printf 'schema=1\nprofile=%s\nterminal=%s\n' "$PROFILE" "$TERMINAL" > "$STATE_DIR/selection.new"
 commit_links
+STAGE=skills
+"$DOTFILES_DIR/scripts/sync-skills"
 local_shell_config="$HOME/.config/shell/local.zsh"
 if [ ! -e "$local_shell_config" ] && [ ! -L "$local_shell_config" ]; then
     if touch "$local_shell_config"; then

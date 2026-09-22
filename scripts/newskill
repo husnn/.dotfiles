@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+# Create, link, and open a new repository-managed agent skill.
+
+set -euo pipefail
+
+die() {
+    printf 'newskill: %s\n' "$*" >&2
+    exit 1
+}
+
+if [ "$#" -ne 1 ]; then
+    printf 'Usage: newskill <name>\n' >&2
+    exit 1
+fi
+
+name=$1
+case "$name" in
+    ''|[!a-z0-9]*|*[!a-z0-9-]*) die 'use a name containing only lowercase letters, digits, and hyphens' ;;
+esac
+
+repo=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)
+skill_directory="$repo/agents/skills/$name"
+skill_file="$skill_directory/SKILL.md"
+installed_skill="$HOME/.agents/skills/$name"
+
+if [ -e "$skill_directory" ] || [ -L "$skill_directory" ]; then
+    die "$name already exists in the repository"
+fi
+
+# Synchronize first so a broken layout or an existing repository conflict is
+# reported before this command creates another source directory.
+"$repo/scripts/sync-skills"
+
+if [ -e "$installed_skill" ] || [ -L "$installed_skill" ]; then
+    die "$installed_skill is already occupied by a local skill"
+fi
+
+mkdir "$skill_directory"
+if ! cat > "$skill_file" <<EOF
+---
+name: $name
+description: Describe when this skill should be used.
+---
+
+# $name
+
+Add the skill instructions here.
+EOF
+then
+    rm -f "$skill_file"
+    rmdir "$skill_directory" 2>/dev/null || true
+    die "could not create $skill_file"
+fi
+
+"$repo/scripts/sync-skills"
+exec "${EDITOR:-nvim}" "$skill_file"

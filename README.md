@@ -62,7 +62,7 @@ config/shared/      application Stow packages
 config/macos/       small Mac additions (Ghostty icon/settings)
 scripts/            everyday commands on PATH
 tools/              private support projects used by scripts
-agents/             shared agent instructions and skills, unchanged paths
+agents/             shared agent instructions and repository-managed skills
 templates/          personal configuration examples
 docs/               configuration explanations and troubleshooting notes
 ```
@@ -86,6 +86,8 @@ Diagnostics report Neovim and tree-sitter CLI versions without imposing new edit
 Shell loading order is shared environment → optional platform environment → NVM → shared aliases/integrations → existing `~/.env` → `~/.config/shell/local.zsh` → syntax highlighting. Shell startup never installs anything. Existing `~/.env` is untouched; copy `templates/.env.example` yourself if needed, and keep credentials out of Git.
 
 After a successful configuration run, the installer creates an empty `~/.config/shell/local.zsh` if it does not already exist. This regular file is personal: Stow does not link it, the installer never overwrites or removes it, and it is not recorded in `links.tsv`. Put personal app shortcuts and machine-specific paths there. Optional command aliases are enabled only when their dependencies exist. `EDITOR` is a single executable or wrapper path, not a shell command containing flags. `newscript` validates its name and finds this checkout through the managed pointer.
+
+Repository agent skills are linked individually into `~/.agents/skills`, which remains a real directory so machine-local skills can coexist without entering the checkout. Use `newskill <name>` to scaffold and link a repository skill, or run `sync-skills` after adding, removing, or pulling skills. Synchronization never replaces a local skill with the same name.
 
 Ghostty reads shared settings, optional `platform.conf`, then your untracked `~/.config/ghostty/local.conf`. Its shell integration prepares interactive SSH sessions by installing the `xterm-ghostty` terminfo entry in the remote user's account when needed, with an `xterm-256color` fallback when that is unavailable. This wraps interactive `ssh` calls and can leave a small `~/.terminfo` entry on remote hosts. WezTerm retains the shared configuration. Xcode integration loads only on macOS when `xcodebuild -version` succeeds; Linux and Macs without full Xcode get no Xcode plugin setup or dead keymaps. AI credentials and optional Terraform/agent CLIs are not installation requirements.
 

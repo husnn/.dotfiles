@@ -4,8 +4,10 @@ font-family = JetBrains Mono
 font-style = SemiBold
 font-size = 14
 
-# Prepare interactive SSH sessions with matching remote terminal capabilities.
-shell-integration-features = ssh-env,ssh-terminfo
+# Ghostty's SSH integration would override our custom ssh() wrapper, so disable
+# it here. ghostty-ssh-integration.zsh keeps the remote terminal setup while
+# preserving tab tinting and routing connections through tssh.
+shell-integration-features = no-ssh-env,no-ssh-terminfo
 
 # Includes are loaded in order: platform settings, then personal overrides.
 config-file = ?platform.conf

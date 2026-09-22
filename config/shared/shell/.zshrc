@@ -7,6 +7,11 @@ source "$_dotfiles_shell/env.zsh"
 [[ -r "$NVM_DIR/nvm.sh" ]] && source "$NVM_DIR/nvm.sh"
 source "$_dotfiles_shell/aliases.zsh"
 source "$_dotfiles_shell/ssh-tint.zsh"
+# A direct Ghostty session can advertise xterm-ghostty after ensuring the remote
+# account has its terminfo entry. Inside tmux, keep tmux's own terminal type.
+if [[ "$TERM" == *ghostty* ]]; then
+    source "$_dotfiles_shell/ghostty-ssh-integration.zsh"
+fi
 source "$_dotfiles_shell/interactive.zsh"
 [[ -r "$HOME/.env" ]] && source "$HOME/.env"
 [[ -r "$_dotfiles_shell/local.zsh" ]] && source "$_dotfiles_shell/local.zsh"

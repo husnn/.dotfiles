@@ -1,0 +1,141 @@
+#!/usr/bin/env bash
+# Expose Xcode's stdio MCP bridge to a remote host through a loopback tunnel.
+
+set -euo pipefail
+
+usage() {
+    cat <<'EOF'
+usage: xcode-mcp [--port PORT] [--host SSH_HOST]
+
+Listen for MCP connections on the Mac's loopback interface and expose the same
+loopback port on the SSH host. Each connection gets its own mcpbridge process.
+Ctrl-C stops the listener, tunnel, and active bridge connections.
+
+Defaults:
+  PORT      9233 (or $XCODE_MCP_PORT)
+  SSH_HOST  hermes-vps (or $XCODE_MCP_SSH_HOST)
+
+The remote MCP client should connect over stdio with:
+  socat STDIO TCP4:127.0.0.1:PORT
+EOF
+}
+
+port=${XCODE_MCP_PORT:-9233}
+ssh_host=${XCODE_MCP_SSH_HOST:-hermes-vps}
+
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --port)
+            [ "$#" -ge 2 ] || { printf 'xcode-mcp: --port requires a value\n' >&2; exit 2; }
+            port=$2
+            shift 2
+            ;;
+        --host)
+            [ "$#" -ge 2 ] || { printf 'xcode-mcp: --host requires a value\n' >&2; exit 2; }
+            ssh_host=$2
+            shift 2
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        *)
+            printf 'xcode-mcp: unknown argument: %s\n' "$1" >&2
+            usage >&2
+            exit 2
+            ;;
+    esac
+done
+
+case "$port" in
+    ''|*[!0-9]*) printf 'xcode-mcp: port must be an integer from 1 to 65535\n' >&2; exit 2 ;;
+esac
+if [ "$port" -lt 1 ] || [ "$port" -gt 65535 ]; then
+    printf 'xcode-mcp: port must be an integer from 1 to 65535\n' >&2
+    exit 2
+fi
+case "$ssh_host" in
+    ''|-*) printf 'xcode-mcp: SSH host must not be empty or begin with "-"\n' >&2; exit 2 ;;
+esac
+
+if [ "$(uname -s)" != Darwin ]; then
+    printf 'xcode-mcp: Xcode MCP is available only on macOS\n' >&2
+    exit 1
+fi
+for command_name in socat ssh xcrun; do
+    if ! command -v "$command_name" >/dev/null 2>&1; then
+        printf 'xcode-mcp: required command not found: %s\n' "$command_name" >&2
+        exit 1
+    fi
+done
+if ! xcrun --find mcpbridge >/dev/null 2>&1; then
+    printf 'xcode-mcp: mcpbridge was not found in the selected Xcode toolchain\n' >&2
+    exit 1
+fi
+if ! pgrep -x Xcode >/dev/null 2>&1; then
+    printf 'xcode-mcp: warning: Xcode is not running; MCP connections may fail until it is opened\n' >&2
+fi
+
+listener_pid=
+tunnel_pid=
+
+cleanup() {
+    status=$?
+    trap - EXIT INT TERM HUP
+
+    # Closing the tunnel first gives every connection an EOF, which lets its
+    # mcpbridge exit normally before the parent listener is stopped.
+    [ -z "$tunnel_pid" ] || kill -TERM "$tunnel_pid" 2>/dev/null || true
+    [ -z "$tunnel_pid" ] || wait "$tunnel_pid" 2>/dev/null || true
+    [ -z "$listener_pid" ] || kill -TERM "$listener_pid" 2>/dev/null || true
+    [ -z "$listener_pid" ] || wait "$listener_pid" 2>/dev/null || true
+
+    exit "$status"
+}
+
+trap 'exit 130' INT
+trap 'exit 143' TERM
+trap 'exit 129' HUP
+trap cleanup EXIT
+
+printf 'Starting Xcode MCP listener on 127.0.0.1:%s ...\n' "$port"
+socat \
+    "TCP4-LISTEN:${port},bind=127.0.0.1,reuseaddr,fork" \
+    'EXEC:/usr/bin/xcrun mcpbridge,pipes' &
+listener_pid=$!
+
+printf 'Opening reverse tunnel on %s (loopback port %s) ...\n' "$ssh_host" "$port"
+ssh -NT \
+    -o ExitOnForwardFailure=yes \
+    -o ServerAliveInterval=30 \
+    -o ServerAliveCountMax=3 \
+    -R "127.0.0.1:${port}:127.0.0.1:${port}" \
+    -- "$ssh_host" &
+tunnel_pid=$!
+
+printf 'Xcode MCP tunnel started. Press Ctrl-C to stop it.\n'
+printf 'Remote command: socat STDIO TCP4:127.0.0.1:%s\n' "$port"
+
+# macOS ships Bash 3.2, which has no `wait -n`. The shell job table lets us
+# notice either child exiting without choosing one child to block on forever.
+while :; do
+    listener_running=0
+    tunnel_running=0
+    for running_pid in $(jobs -pr); do
+        [ "$running_pid" != "$listener_pid" ] || listener_running=1
+        [ "$running_pid" != "$tunnel_pid" ] || tunnel_running=1
+    done
+
+    if [ "$listener_running" -eq 0 ]; then
+        if wait "$listener_pid"; then status=0; else status=$?; fi
+        printf 'xcode-mcp: listener exited; stopping tunnel\n' >&2
+        exit "$status"
+    fi
+    if [ "$tunnel_running" -eq 0 ]; then
+        if wait "$tunnel_pid"; then status=0; else status=$?; fi
+        printf 'xcode-mcp: tunnel exited; stopping listener\n' >&2
+        exit "$status"
+    fi
+
+    sleep 1
+done

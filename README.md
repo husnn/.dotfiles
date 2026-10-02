@@ -73,6 +73,8 @@ The installer requires standard `~/.config` and `~/.zshrc` destinations. Custom 
 
 Homebrew owns shared CLI tools, pnpm, Python 3.14, Java, Go, and zsh plugins. NVM owns your development Node/npm versions. The initial choices are in `packages/runtimes.conf`: NVM v0.40.7 and Node 24. Existing NVM defaults are preserved; an unusable or too-old default fails with instructions instead of being silently replaced. pnpm is declared in the shared Brewfile, independently of NVM; switching Node versions does not require reinstalling it. The installer never installs pnpm through npm or applies an NVM-specific pnpm version policy. Homebrew may supply a separate Node dependency for pnpm; existing installations are not removed.
 
+The shell also exposes tools installed with `pnpm add -g` by appending pnpm's global executable directory to PATH, keeping Homebrew and NVM commands ahead of it. This follows pnpm v11+ conventions: `$PNPM_HOME/bin` when set, otherwise `$XDG_DATA_HOME/pnpm/bin` when set, or the platform default (`~/Library/pnpm/bin` on macOS and `~/.local/share/pnpm/bin` on Linux). Shell configuration is managed here; running `pnpm setup` is unnecessary.
+
 Core excludes explicit desktop selections, not every graphics-related transitive library: OpenJDK, for example, can depend on X11/font libraries on Linux. Nothing in core starts a GUI.
 
 Telescope's native extension and parser compilation use a C compiler and make, supplied by Apple's Command Line Tools or Linux build prerequisites. Mason uses `unzip` for downloaded archives: macOS supplies it, while Linux bootstrap explicitly installs it. Linux also supplies XZ extraction for runtime archives. CMake, pkg-config, and Rust/Cargo are not declared requirements.

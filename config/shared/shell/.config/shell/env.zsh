@@ -34,4 +34,18 @@ if [[ -n "$HOMEBREW_PREFIX" ]]; then
         fi
     fi
 fi
-unset _brew
+
+# Tools installed with `pnpm add -g` need their executable directory on PATH.
+# pnpm v11+ uses a bin subdirectory, separate from the Homebrew-owned pnpm CLI.
+# Append it so global tools do not take precedence over Homebrew or NVM commands.
+if [[ -n "${PNPM_HOME:-}" ]]; then
+    _pnpm_home="$PNPM_HOME"
+elif [[ -n "${XDG_DATA_HOME:-}" ]]; then
+    _pnpm_home="$XDG_DATA_HOME/pnpm"
+elif [[ "$OSTYPE" == darwin* ]]; then
+    _pnpm_home="$HOME/Library/pnpm"
+else
+    _pnpm_home="$HOME/.local/share/pnpm"
+fi
+path+=("$_pnpm_home/bin")
+unset _brew _pnpm_home

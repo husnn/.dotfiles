@@ -35,6 +35,13 @@ if [[ -n "$HOMEBREW_PREFIX" ]]; then
     fi
 fi
 
+# The macOS app keeps its CLI inside the app bundle. Add that directory so
+# commands such as `tailscale status` work without enabling its /usr/local/bin link.
+# An existing CLI installation already provides the command and takes precedence.
+if [[ "$OSTYPE" == darwin* ]] && (( ! $+commands[tailscale] )) && [[ -x /Applications/Tailscale.app/Contents/MacOS/tailscale ]]; then
+    path+=(/Applications/Tailscale.app/Contents/MacOS)
+fi
+
 # Tools installed with `pnpm add -g` need their executable directory on PATH.
 # pnpm v11+ uses a bin subdirectory, separate from the Homebrew-owned pnpm CLI.
 # Append it so global tools do not take precedence over Homebrew or NVM commands.

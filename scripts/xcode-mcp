@@ -13,7 +13,7 @@ Ctrl-C stops the listener, tunnel, and active bridge connections.
 
 Defaults:
   PORT      9233 (or $XCODE_MCP_PORT)
-  SSH_HOST  hermes-vps (or $XCODE_MCP_SSH_HOST)
+  SSH_HOST  $XCODE_MCP_SSH_HOST (required unless --host is supplied)
 
 The remote MCP client should connect over stdio with:
   socat STDIO TCP4:127.0.0.1:PORT
@@ -21,7 +21,7 @@ EOF
 }
 
 port=${XCODE_MCP_PORT:-9233}
-ssh_host=${XCODE_MCP_SSH_HOST:-hermes-vps}
+ssh_host=${XCODE_MCP_SSH_HOST:-}
 
 while [ "$#" -gt 0 ]; do
     case "$1" in
@@ -55,7 +55,8 @@ if [ "$port" -lt 1 ] || [ "$port" -gt 65535 ]; then
     exit 2
 fi
 case "$ssh_host" in
-    ''|-*) printf 'xcode-mcp: SSH host must not be empty or begin with "-"\n' >&2; exit 2 ;;
+    '') printf 'xcode-mcp: specify --host or set XCODE_MCP_SSH_HOST in ~/.config/shell/local.zsh\n' >&2; exit 2 ;;
+    -*) printf 'xcode-mcp: SSH host must not begin with "-"\n' >&2; exit 2 ;;
 esac
 
 if [ "$(uname -s)" != Darwin ]; then

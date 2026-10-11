@@ -137,7 +137,7 @@ if [ "$DRY_RUN" -eq 1 ]; then
         log 'Plan: bootstrap TPM if missing; editor and tmux plugins remain first-launch actions.'
     fi
     if [ ! -e "$HOME/.config/shell/local.zsh" ] && [ ! -L "$HOME/.config/shell/local.zsh" ]; then
-        log 'Plan: create empty personal shell overrides at ~/.config/shell/local.zsh.'
+        log 'Plan: copy templates/local.zsh.example to ~/.config/shell/local.zsh.'
     fi
     log 'Plan: reconcile repository-managed agent skills.'
     log 'Dry run: no packages, runtimes, plugins, links, backups, or state were changed.'
@@ -189,7 +189,9 @@ STAGE=skills
 "$DOTFILES_DIR/scripts/sync-skills"
 local_shell_config="$HOME/.config/shell/local.zsh"
 if [ ! -e "$local_shell_config" ] && [ ! -L "$local_shell_config" ]; then
-    if touch "$local_shell_config"; then
+    # Create a personal copy, not a managed link. Noclobber prevents an existing
+    # file from being overwritten if another process creates it after the check.
+    if (set -C; cat "$DOTFILES_DIR/templates/local.zsh.example" > "$local_shell_config"); then
         log "Created personal shell overrides: $local_shell_config"
     else
         printf 'Warning: could not create personal shell overrides: %s\n' "$local_shell_config" >&2

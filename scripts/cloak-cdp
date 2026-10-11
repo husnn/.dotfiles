@@ -14,7 +14,7 @@ and tunnel. The profile stays on disk.
 
 Defaults:
   PORT      9222 (or $CLOAK_CDP_PORT)
-  SSH_HOST  hermes-vps (or $CLOAK_CDP_SSH_HOST)
+  SSH_HOST  $CLOAK_CDP_SSH_HOST (required unless --host is supplied)
   STATE_DIR ${XDG_STATE_HOME:-$HOME/.local/state}/cloak-cdp
             (or $CLOAK_CDP_STATE_DIR)
 
@@ -25,7 +25,7 @@ EOF
 }
 
 port=${CLOAK_CDP_PORT:-9222}
-ssh_host=${CLOAK_CDP_SSH_HOST:-hermes-vps}
+ssh_host=${CLOAK_CDP_SSH_HOST:-}
 headless=0
 state_dir=
 fingerprint=
@@ -76,7 +76,8 @@ if [ "$port" -lt 1 ] || [ "$port" -gt 65535 ]; then
     exit 2
 fi
 case "$ssh_host" in
-    ''|-*) printf 'cloak-cdp: SSH host must not be empty or begin with "-"\n' >&2; exit 2 ;;
+    '') printf 'cloak-cdp: specify --host or set CLOAK_CDP_SSH_HOST in ~/.config/shell/local.zsh\n' >&2; exit 2 ;;
+    -*) printf 'cloak-cdp: SSH host must not begin with "-"\n' >&2; exit 2 ;;
 esac
 
 if [ "$(uname -s)" != Darwin ]; then

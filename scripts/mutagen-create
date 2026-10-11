@@ -1,0 +1,315 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+die() {
+    printf 'mutagen-create: %s\n' "$*" >&2
+    exit 1
+}
+
+usage() {
+    cat <<'EOF'
+Usage: mutagen-create [host-number|host-name|SSH-host] [options]
+
+  --local PATH       Local directory (default: current directory)
+  --remote PATH      Remote path (default: local path with home replaced by ~)
+  -n, --name NAME    Session name (default: lowercase remote directory name)
+  -m, --mode MODE    Sync mode (default: two-way-safe)
+  -i, --ignore PATTERN...  Additional ignore patterns (flag can be repeated)
+  --dry-run          Print the command without creating a session
+  -h, --help         Show this help
+
+Missing host, remote path, and session name are prompted for.
+Press Enter to accept the displayed default. Creation requires confirmation.
+After creation, check initial sync progress for up to 10 seconds and show status.
+REMOTE_SSH_HOSTS is an ordered, space-separated list, e.g.:
+  builder=user@build.example.com staging=staging-host
+Hosts accept a list number, a short name, or an SSH host directly.
+Put the host before ignore patterns. Quote wildcard patterns, e.g. '*.log'.
+Modes: two-way-safe, two-way-resolved, one-way-safe, one-way-replica.
+Symlink mode defaults to portable. Extra Mutagen arguments are forwarded after
+defaults, so explicit scalar and boolean values override them. Ignore patterns
+remain additive. Put the host before extra arguments, or omit it to be prompted.
+Use -- to forward the remaining arguments without wrapper parsing.
+EOF
+}
+
+# Read from stdin so prompts also work with redirected answers. EOF cancels
+# instead of silently accepting defaults and starting a synchronization session.
+prompt() {
+    local label=$1 default=$2 answer
+    printf '%s [%s]: ' "$label" "$default" >&2
+    IFS= read -r answer || die 'input ended; cancelled'
+    REPLY=${answer:-$default}
+}
+
+valid_session_name() {
+    [[ "$1" =~ ^[[:alpha:]][[:alnum:]-]*$ ]] && [ "$1" != defaults ] &&
+        ! [[ "$1" =~ ^[[:xdigit:]]{8}-[[:xdigit:]]{4}-[[:xdigit:]]{4}-[[:xdigit:]]{4}-[[:xdigit:]]{12}$ ]]
+}
+
+host_choice=''
+local_path=$PWD
+remote_path=''
+session_name=''
+sync_mode=two-way-safe
+custom_ignores=()
+mutagen_args=()
+forwarding=false
+explicit_vcs=false
+dry_run=false
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --local=*|--remote=*|--name=*|--mode=*|--ignore=*)
+            # Accept Mutagen's --flag=value spelling for wrapper-owned options
+            # too, so explicit names and modes also update prompts and summaries.
+            set -- "${1%%=*}" "${1#*=}" "${@:2}"
+            ;;
+        --local|--remote|-n|--name|-m|--mode)
+            [ "$#" -ge 2 ] && [ -n "$2" ] || die "$1 requires a value"
+            case "$1" in
+                --local) local_path=$2 ;;
+                --remote) remote_path=$2 ;;
+                -n|--name) session_name=$2 ;;
+                -m|--mode) sync_mode=$2 ;;
+            esac
+            shift 2
+            ;;
+        -i|--ignore)
+            ignore_flag=$1
+            shift
+            ignore_count=0
+            # Consume separate patterns until the next option. Do not split on
+            # commas: a comma or a space can be part of a valid filename.
+            while [ "$#" -gt 0 ]; do
+                case "$1" in -*) break ;; esac
+                [ -n "$1" ] || die "$ignore_flag requires nonempty patterns"
+                custom_ignores+=("$1")
+                ignore_count=$((ignore_count + 1))
+                shift
+            done
+            [ "$ignore_count" -gt 0 ] || die "$ignore_flag requires at least one pattern"
+            ;;
+        --dry-run) dry_run=true; shift ;;
+        -h|--help) usage; exit 0 ;;
+        --)
+            shift
+            mutagen_args+=("$@")
+            break
+            ;;
+        -*)
+            forwarding=true
+            mutagen_args+=("$1")
+            shift
+            ;;
+        *)
+            if [ -z "$host_choice" ] && ! "$forwarding"; then
+                host_choice=$1
+            else
+                mutagen_args+=("$1")
+            fi
+            shift
+            ;;
+    esac
+done
+
+# Mutagen rejects --ignore-vcs together with --no-ignore-vcs. Omit our default
+# when the user explicitly chooses either setting rather than forwarding a
+# contradictory pair. Other boolean/scalar flags use Mutagen's last value.
+for argument in ${mutagen_args[@]+"${mutagen_args[@]}"}; do
+    case "$argument" in
+        --ignore-vcs|--ignore-vcs=*|--no-ignore-vcs|--no-ignore-vcs=*) explicit_vcs=true ;;
+    esac
+done
+
+case "$sync_mode" in
+    two-way-safe|two-way-resolved|one-way-safe|one-way-replica) ;;
+    *) die "invalid sync mode: $sync_mode (see --help)" ;;
+esac
+
+if ! "$dry_run"; then
+    command -v mutagen >/dev/null 2>&1 || die 'mutagen is not installed'
+fi
+[ -d "$local_path" ] || die "local directory does not exist: $local_path"
+# macOS can accept ~/projects when the directory is named Projects. Use the
+# filesystem path so the remote default retains the actual capitalization,
+# not the spelling used by the shell. Bash's builtin pwd -P still preserves
+# that spelling on this Mac, so use the system command. This resolves symlinks.
+local_path=$(cd -- "$local_path" && /bin/pwd -P)
+local_name=${local_path##*/}
+[ -n "$local_name" ] || die 'select a local directory other than the filesystem root'
+
+# An exported string works in both zsh and Bash. Disable pathname expansion
+# while splitting entries so a host configuration cannot expand local files.
+hosts=()
+host_count=0
+set -f
+for entry in ${REMOTE_SSH_HOSTS:-}; do
+    hosts+=("$entry")
+    host_count=$((host_count + 1))
+done
+set +f
+
+if [ -z "$host_choice" ]; then
+    default_host=''
+    if [ "$host_count" -gt 0 ]; then
+        printf 'Remote hosts:\n' >&2
+        for ((i=0; i<host_count; i++)); do
+            printf '  %d) %s\n' "$((i + 1))" "${hosts[$i]}" >&2
+        done
+        default_host=1
+    fi
+    prompt 'Host (number, short name, or SSH host)' "$default_host"
+    host_choice=$REPLY
+fi
+
+host=$host_choice
+if [[ "$host_choice" =~ ^[0-9]+$ ]]; then
+    # Compare strings rather than converting arbitrary input to shell arithmetic.
+    # This also avoids treating numbers with a leading zero as octal values.
+    found=false
+    for ((i=0; i<host_count; i++)); do
+        if [ "$host_choice" = "$((i + 1))" ]; then
+            host=${hosts[$i]#*=}
+            found=true
+            break
+        fi
+    done
+    "$found" || die "host number is not in the list: $host_choice"
+else
+    # macOS Bash 3 treats empty arrays as unset under nounset. Expand entries
+    # only when present so direct SSH hosts also work without a configured list.
+    for entry in ${hosts[@]+"${hosts[@]}"}; do
+        if [ "$host_choice" = "${entry%%=*}" ]; then
+            host=${entry#*=}
+            break
+        fi
+    done
+fi
+case "$host" in
+    ''|-*|*[[:space:]:/=]*) die 'use an SSH alias, hostname, or user@hostname for the host' ;;
+esac
+
+if [ -z "$remote_path" ]; then
+    # Usernames and home locations can differ across machines. A literal tilde
+    # makes Mutagen resolve the home directory on the remote host, not locally.
+    default_remote=$local_path
+    case "$local_path" in
+        "$HOME") default_remote='~' ;;
+        "$HOME"/*) default_remote="~/${local_path#"$HOME"/}" ;;
+    esac
+    prompt 'Remote path' "$default_remote"
+    remote_path=$REPLY
+fi
+case "$remote_path" in
+    ''|*$'\n'*|*$'\r'*) die 'remote path must be nonempty and contain no line breaks' ;;
+esac
+# Ignore trailing slashes when deriving the session name, but preserve the
+# supplied endpoint path. Relative overrides remain relative to the remote home.
+remote_directory=$remote_path
+while [[ "$remote_directory" == */ && "$remote_directory" != / ]]; do
+    remote_directory=${remote_directory%/}
+done
+directory=${remote_directory##*/}
+# A home-only endpoint has no project basename. Retain the local directory
+# name as the session default instead of suggesting an invalid tilde name.
+[ "$remote_directory" != '~' ] || directory=$local_name
+
+if [ -z "$session_name" ]; then
+    default_name=$(printf '%s' "$directory" | LC_ALL=C tr '[:upper:]' '[:lower:]')
+    while :; do
+        prompt 'Session name' "$default_name"
+        session_name=$REPLY
+        valid_session_name "$session_name" && break
+        printf 'Use a name starting with a letter, containing only letters, numbers, or hyphens. Mutagen reserves defaults and UUID names.\n' >&2
+    done
+fi
+valid_session_name "$session_name" || die 'invalid session name; use letters, numbers, or hyphens, starting with a letter (not defaults or a UUID)'
+
+command_args=(mutagen sync create
+    --no-global-configuration
+    --name "$session_name"
+    --mode "$sync_mode"
+    --symlink-mode=portable)
+if ! "$explicit_vcs"; then
+    command_args+=(--ignore-vcs)
+fi
+command_args+=(
+    # --ignore-vcs skips directories only. Worktrees use a .git file that points
+    # to local Git metadata, which must not be copied to a different machine.
+    --ignore .git)
+if [ "$(uname -s)" = Darwin ]; then
+    command_args+=(--ignore .DS_Store)
+fi
+# The guarded expansion also supports no custom ignores under macOS Bash 3.
+for pattern in ${custom_ignores[@]+"${custom_ignores[@]}"}; do
+    command_args+=(--ignore "$pattern")
+done
+for argument in ${mutagen_args[@]+"${mutagen_args[@]}"}; do
+    command_args+=("$argument")
+done
+command_args+=("$local_path" "$host:$remote_path")
+printf '\nSession: %s\nMode:    %s\nLocal:   %s\nRemote:  %s\n' "$session_name" "$sync_mode" "$local_path" "$host:$remote_path"
+printf 'Command:'
+printf ' %q' "${command_args[@]}"
+printf '\n'
+"$dry_run" && exit 0
+
+prompt 'Create session? (y/N)' 'N'
+case "$REPLY" in
+    y|Y|yes|YES) ;;
+    *) printf 'Cancelled.\n'; exit 0 ;;
+esac
+
+# Keep Mutagen's progress and prompts visible while recording the identifier.
+# Names can be reused, so status checks must select the newly created session
+# by identifier rather than accidentally reporting an older session's health.
+creation_log=$(mktemp)
+trap 'rm -f "$creation_log"' EXIT
+if "${command_args[@]}" | tee "$creation_log"; then
+    creation_output=$(cat "$creation_log")
+else
+    creation_status=$?
+    printf 'mutagen-create: session creation failed (exit %s); see the error above.\n' "$creation_status" >&2
+    exit "$creation_status"
+fi
+rm -f "$creation_log"
+trap - EXIT
+if [[ "$creation_output" =~ Created\ session\ (sync_[[:alnum:]]+) ]]; then
+    session_id=${BASH_REMATCH[1]}
+else
+    die 'creation succeeded, but the session identifier could not be read; check mutagen sync list --long'
+fi
+printf 'Session created: %s (%s)\nChecking initial synchronization...\n' "$session_name" "$session_id"
+
+# Creation only registers the session. Wait briefly for an asynchronous sync
+# cycle so missing parents, permission errors, or conflicts become visible.
+# A completed cycle alone is insufficient: Mutagen can report transition
+# problems while also incrementing SuccessfulCycles and showing "watching".
+status_template='{{range .}}{{if .Paused}}pending{{else if or .LastError .Conflicts .Alpha.ScanProblems .Beta.ScanProblems .Alpha.TransitionProblems .Beta.TransitionProblems}}problem{{else if and .Alpha.Connected .Beta.Connected .SuccessfulCycles}}ready{{else}}pending{{end}}{{end}}'
+sync_result=pending
+for ((attempt=0; attempt<=10; attempt++)); do
+    if ! sync_result=$(mutagen sync list "$session_id" --template "$status_template"); then
+        die "session created, but status could not be read; run: mutagen sync list $session_id --long"
+    fi
+    case "$sync_result" in
+        ready|problem) break ;;
+        pending) ;;
+        *) die "session created, but status was unexpected; run: mutagen sync list $session_id --long" ;;
+    esac
+    [ "$attempt" -eq 10 ] || sleep 1
+done
+
+printf '\n'
+mutagen sync list "$session_id" --long || die 'session created, but detailed status could not be read'
+case "$sync_result" in
+    ready) printf 'Initial synchronization completed without reported problems.\n' ;;
+    problem)
+        printf 'mutagen-create: session created, but synchronization has errors or conflicts; see the status above. The session remains active.\n' >&2
+        printf 'After fixing the cause, request an immediate sync cycle:\n  mutagen sync flush %s\n' "$session_id" >&2
+        printf 'Mutagen may retry automatically. Flush does not fix errors or conflicts.\n' >&2
+        printf 'Monitor: mutagen sync monitor %s\n' "$session_id" >&2
+        exit 1
+        ;;
+    pending) printf 'Session created, but initial synchronization is not yet confirmed.\n' ;;
+esac
+printf 'Monitor: mutagen sync monitor %s\n' "$session_id"

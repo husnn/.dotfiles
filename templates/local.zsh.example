@@ -1,0 +1,13 @@
+# Personal shell settings. The installer copies this template to
+# ~/.config/shell/local.zsh only when that file is absent. Existing settings
+# remain unchanged. The shell loads this file after shared configuration.
+
+# Remote tools can share this ordered list of short-name=SSH-host entries.
+# For example, mutagen-create accepts 1, builder, or user@build.example.com
+# to select the first entry. Use SSH aliases or user@hostname as the target.
+# export REMOTE_SSH_HOSTS='builder=user@build.example.com staging=staging-host'
+
+# Tunnel commands need a destination from --host or their environment variable.
+# Set these here to avoid supplying --host each time you start a tunnel.
+# export CLOAK_CDP_SSH_HOST='user@build.example.com'
+# export XCODE_MCP_SSH_HOST='user@build.example.com'
